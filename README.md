@@ -1,6 +1,6 @@
 [![GitHub license](https://img.shields.io/github/license/giacomolanciano/predictive-elasticity-monasca)](https://github.com/giacomolanciano/predictive-elasticity-monasca/blob/master/LICENSE)
-<!-- [![DOI](https://zenodo.org/badge/420148162.svg)](https://zenodo.org/badge/latestdoi/420148162)
-[![arXiv](https://img.shields.io/badge/arXiv-2111.02133-b31b1b.svg)](https://arxiv.org/abs/2111.02133) -->
+[![DOI](https://zenodo.org/badge/448377171.svg)](https://zenodo.org/badge/latestdoi/448377171)
+<!-- [![arXiv](https://img.shields.io/badge/arXiv-2111.02133-b31b1b.svg)](https://arxiv.org/abs/2111.02133) -->
 
 # Extending OpenStack Monasca for Predictive Elasticity Control
 
