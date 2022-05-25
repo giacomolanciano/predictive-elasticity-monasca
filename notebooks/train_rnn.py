@@ -8,9 +8,9 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.11.2
 #   kernelspec:
-#     display_name: pred-as-os
+#     display_name: pred-ops-os
 #     language: python
-#     name: pred-as-os
+#     name: pred-ops-os
 # ---
 
 # %%
@@ -97,7 +97,7 @@ scaler = MinMaxScaler()
 scaler.fit(np.array([[0], [200]]))
 joblib.dump(scaler, "rnn_scaler.joblib")
 
-data = scaler.transform(run2seq(DATA_ROOT / "super_steep_behavior.csv"))
+data = scaler.transform(run2seq(DATA_ROOT / "train_super_steep_behavior.csv"))
 
 # %%
 iterations = 10000

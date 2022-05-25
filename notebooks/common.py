@@ -140,10 +140,17 @@ class RNN(nn.Module):
 
 
 def run2seq(filename: str, datetime_format=DATETIME_FORMAT, limit=None):
-    df = pd.read_csv(
-        filename,
-        parse_dates=["timestamp"],
-    )
+    try:
+        df = pd.read_csv(
+            filename,
+            parse_dates=["timestamp"],
+        )
+    except ValueError as err:
+        if str(err).startswith("Missing column provided to 'parse_dates':"):
+            print("WARN: The expected date/time column was not found, date parsing will be skipped.")
+            df = pd.read_csv(filename)
+        else:
+            raise err
 
     if "hostname" in df.columns:
         table = pd.pivot_table(

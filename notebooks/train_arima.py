@@ -10,9 +10,9 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.11.2
 #   kernelspec:
-#     display_name: pred-as-os
+#     display_name: pred-ops-os
 #     language: python
-#     name: pred-as-os
+#     name: pred-ops-os
 # ---
 
 # %%
@@ -35,7 +35,7 @@ limit = 2880
 scaler = MinMaxScaler()
 scaler.fit(np.array([[0], [400]]))
 
-data = run2seq(DATA_ROOT / "super_steep_behavior.csv").reshape(-1)
+data = run2seq(DATA_ROOT / "train_super_steep_behavior.csv").reshape(-1)
 data = data[:limit]
 
 data_scaled = scaler.transform(data.reshape(-1, 1)).reshape(-1)

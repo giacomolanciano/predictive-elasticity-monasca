@@ -8,9 +8,9 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.11.2
 #   kernelspec:
-#     display_name: pred-as-os
+#     display_name: pred-ops-os
 #     language: python
-#     name: pred-as-os
+#     name: pred-ops-os
 # ---
 
 # %%
@@ -35,7 +35,7 @@ PREDICTION_OFFSET = 15
 
 # %%
 file_list = []
-for export_file in DATA_ROOT.glob("super_steep_behavior.csv"):
+for export_file in DATA_ROOT.glob("train_super_steep_behavior.csv"):
     file_list.append(export_file)
 
 ds, scaler = gen_dataset(file_list, INPUT_SAMPLES, PREDICTION_OFFSET)
@@ -78,7 +78,7 @@ torch.save(mlp.state_dict(), dump_filename)
 # ## Test
 
 # %%
-data = scaler.transform(run2seq(DATA_ROOT / "super_steep_behavior.csv", DATETIME_FORMAT))
+data = scaler.transform(run2seq(DATA_ROOT / "train_super_steep_behavior.csv", DATETIME_FORMAT))
 
 
 # %%

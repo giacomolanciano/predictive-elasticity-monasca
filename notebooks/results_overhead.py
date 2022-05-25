@@ -9,9 +9,9 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.11.2
 #   kernelspec:
-#     display_name: pred-as-os
+#     display_name: pred-ops-os
 #     language: python
-#     name: pred-as-os
+#     name: pred-ops-os
 # ---
 
 # %%

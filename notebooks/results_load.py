@@ -9,9 +9,9 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.11.2
 #   kernelspec:
-#     display_name: pred-as-os
+#     display_name: pred-ops-os
 #     language: python
-#     name: pred-as-os
+#     name: pred-ops-os
 # ---
 
 # %%
@@ -22,12 +22,12 @@ from itertools import zip_longest
 import holoviews as hv
 import pandas as pd
 from constants import (
+    ARIMA_RUNS,
     DATA_ROOT,
     DATETIME_FORMAT,
     LIN_RUNS,
     MLP_RUNS,
     RNN_RUNS,
-    ARIMA_RUNS,
     STATIC_RUNS,
 )
 from sklearn.metrics import mean_absolute_error, mean_absolute_percentage_error
@@ -37,13 +37,13 @@ pd.options.plotting.backend = "holoviews"
 
 # %%
 static_runs_lim = (60, None)
-static_runs_exclude = set([])
+static_runs_exclude = set([61, 62])
 lin_runs_lim = (9, None)
 lin_runs_exclude = set([10, 12, 14])
 mlp_runs_lim = (7, None)
 mlp_runs_exclude = set([8])
 rnn_runs_lim = (26, None)
-rnn_runs_exclude = set([27, 28, 31, 32])
+rnn_runs_exclude = set([27, 28, 31, 32, 33])
 arima_runs_lim = (4, None)
 arima_runs_exclude = set([])
 run_time_limit = None
@@ -61,40 +61,50 @@ for real_file, pred_file in zip_longest(
         pred_file = pred_file.resolve()
     i = int(real_file.name.split("-")[-2])
 
-    if "-rnn-" in real_file.name:
+    if "-as-rnn-" in real_file.name:
         if i in rnn_runs_exclude:
             continue
         if rnn_runs_lim[0] is not None and i < rnn_runs_lim[0]:
             continue
         if rnn_runs_lim[1] is not None and i > rnn_runs_lim[1]:
             continue
-    elif "-mlp-" in real_file.name:
+        if rnn_runs_lim[0] is None and rnn_runs_lim[1] is None:
+            continue
+    elif "-as-mlp-" in real_file.name:
         if i in mlp_runs_exclude:
             continue
         if mlp_runs_lim[0] is not None and i < mlp_runs_lim[0]:
             continue
         if mlp_runs_lim[1] is not None and i > mlp_runs_lim[1]:
             continue
-    elif "-lin-" in real_file.name:
+        if mlp_runs_lim[0] is None and mlp_runs_lim[1] is None:
+            continue
+    elif "-as-lin-" in real_file.name:
         if i in lin_runs_exclude:
             continue
         if lin_runs_lim[0] is not None and i < lin_runs_lim[0]:
             continue
         if lin_runs_lim[1] is not None and i > lin_runs_lim[1]:
             continue
-    elif "-aim-" in real_file.name:
+        if lin_runs_lim[0] is None and lin_runs_lim[1] is None:
+            continue
+    elif "-as-aim-" in real_file.name:
         if i in arima_runs_exclude:
             continue
         if arima_runs_lim[0] is not None and i < arima_runs_lim[0]:
             continue
         if arima_runs_lim[1] is not None and i > arima_runs_lim[1]:
             continue
-    elif "-stc-" in real_file.name:
+        if arima_runs_lim[0] is None and arima_runs_lim[1] is None:
+            continue
+    elif "-as-stc-" in real_file.name:
         if i in static_runs_exclude:
             continue
         if static_runs_lim[0] is not None and i < static_runs_lim[0]:
             continue
         if static_runs_lim[1] is not None and i > static_runs_lim[1]:
+            continue
+        if static_runs_lim[0] is None and static_runs_lim[1] is None:
             continue
 
     print(f"reading from {real_file} and {pred_file} ...")
@@ -111,10 +121,18 @@ for real_file, pred_file in zip_longest(
         resource_id = item["dimensions"]["resource_id"]
         hostname = item["dimensions"]["hostname"]
         measurement_list = item["measurements"]
-        real_df = real_df.append(
+
+        real_df = pd.concat(
             [
-                pd.Series([m[0], resource_id, hostname, m[1]], index=real_df.columns)
-                for m in measurement_list
+                real_df,
+                pd.DataFrame(
+                    [
+                        pd.Series(
+                            [m[0], resource_id, hostname, m[1]], index=real_df.columns
+                        )
+                        for m in measurement_list
+                    ]
+                ),
             ]
         )
     real_df = real_df.astype(
@@ -139,10 +157,15 @@ for real_file, pred_file in zip_longest(
         pred_df = pd.DataFrame(columns=["timestamp", pred_metric])
         for item in pred_json_body:
             measurement_list = item["measurements"]
-            pred_df = pred_df.append(
+            pred_df = pd.concat(
                 [
-                    pd.Series([m[0], m[1]], index=pred_df.columns)
-                    for m in measurement_list
+                    pred_df,
+                    pd.DataFrame(
+                        [
+                            pd.Series([m[0], m[1]], index=pred_df.columns)
+                            for m in measurement_list
+                        ]
+                    ),
                 ]
             )
         pred_df = pred_df.astype(
@@ -175,10 +198,10 @@ color_cycle = hv.Cycle(
         "#1f77b4",
     ]
 )
-opts = [
-    hv.opts.Scatter(size=5, marker="o"),
-    hv.opts.Curve(tools=["hover"]),
-]
+opts = [hv.opts.Curve(tools=["hover"])]
+opts_scatter = hv.opts.Scatter(size=5, marker="o", tools=["hover"])
+opts_scatter_cross = hv.opts.Scatter(size=10, marker="x", tools=["hover"])
+opts_scatter_diam = hv.opts.Scatter(size=12, marker="d", tools=["hover"])
 
 for label, real_df, pred_df in df_list:
     traces = []
@@ -195,6 +218,7 @@ for label, real_df, pred_df in df_list:
     elif "-stc-" in label:
         mapping = STATIC_RUNS
 
+    ### data manipulation ###
     table = pd.pivot_table(
         real_df,
         values="cpu.utilization_perc",
@@ -211,8 +235,16 @@ for label, real_df, pred_df in df_list:
     orig_cols = table.columns.copy()
     orig_cols_num = len(orig_cols)
 
-    # compute spatial statistics to reconstruct info provided to Monasca
+    # compute spatial statistics
+    table["count"] = (~table.isnull()).iloc[:, 0:orig_cols_num].sum(axis=1)
     table["sum"] = table.iloc[:, 0:orig_cols_num].sum(axis=1)
+    table["mean"] = table["sum"] / table["count"]
+    table["std"] = (
+        ((table.iloc[:, 0:orig_cols_num].subtract(table["mean"], axis=0)) ** 2).sum(
+            axis=1
+        )
+        / table["count"]
+    ) ** 0.5
 
     if pred_df is not None:
         # insert prediction data to align timestamps
@@ -220,17 +252,6 @@ for label, real_df, pred_df in df_list:
 
         # interpolate missing predictions
         table[pred_metric] = table[pred_metric].interpolate()
-
-        # compute prediction error (if a scale-out actually took place)
-        if orig_cols_num > 2:
-            new_vm_start = table[orig_cols[2]].dropna().index[0]
-            init_vms_interval = pd.date_range(end=new_vm_start, freq="min", periods=20)
-            init_vms_data = table[orig_cols[:2]].loc[init_vms_interval].mean(axis=1)
-            pred_interval = init_vms_interval - timedelta(minutes=15)
-            pred_data = table[pred_metric].loc[pred_interval]
-            pred_mape = mean_absolute_percentage_error(init_vms_data, pred_data)
-            pred_mae = mean_absolute_error(init_vms_data, pred_data)
-            print(f"{label} - MAPE: {pred_mape:.2f} | MAE: {pred_mae:.2f}")
 
     table.reset_index(inplace=True)
 
@@ -253,6 +274,7 @@ for label, real_df, pred_df in df_list:
         print(f"Saving to {csv_dump_file} ...")
         table.to_csv(csv_dump_file, index=False)
 
+    ### plot customization ###
     # plot scale-out threshold
     traces.append(hv.HLine(80).opts(color="black", line_dash="dashed"))
 
@@ -262,7 +284,9 @@ for label, real_df, pred_df in df_list:
         hv.Scatter(
             (table.index, table["distwalk"].values),
             label=distwalk_trace_label,
-        ).opts(color=color_cycle)
+        )
+        .opts(color=color_cycle)
+        .opts(opts_scatter)
     )
     traces.append(
         hv.Curve(
@@ -281,7 +305,9 @@ for label, real_df, pred_df in df_list:
                     (table.index, table[group_label].values),
                     label=load_trace_label,
                     kdims=[],
-                ).opts(color=color_cycle)
+                )
+                .opts(color=color_cycle)
+                .opts(opts_scatter)
             )
             traces.append(
                 hv.Curve(
@@ -291,14 +317,16 @@ for label, real_df, pred_df in df_list:
             )
             instance_idx += 1
 
+    # plot predictor output
     if pred_df is not None:
-        # plot predictor output
         prediction_trace_label = "predicted cluster avg"
         traces.append(
             hv.Scatter(
                 (table.index, table[pred_metric].values),
                 label=prediction_trace_label,
-            ).opts(color="#d62728")
+            )
+            .opts(color="#d62728")
+            .opts(opts_scatter)
         )
         traces.append(
             hv.Curve(
@@ -325,6 +353,8 @@ for label, real_df, pred_df in df_list:
             xlabel="time [min]",
             ylabel="CPU usage [%]",
             legend_position="top_right",
+            # legend_cols=2, # still buggy: https://github.com/holoviz/holoviews/issues/3780
+            legend_opts={'background_fill_alpha': .5, 'padding': 20, 'spacing': 1},
             fontsize={
                 "title": 13,
                 "legend": 12,
@@ -339,7 +369,7 @@ for label, real_df, pred_df in df_list:
     fig_list.append(fig)
     label_list.append(label)
 
-layout = hv.Layout(fig_list).cols(1)
+layout = hv.Layout(fig_list).cols(1).opts(shared_axes=False)
 layout
 
 # %%

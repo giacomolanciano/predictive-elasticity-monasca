@@ -12,6 +12,12 @@ STATIC_RUNS = {
         "end_real": "2021-10-08T19:09:15Z",
         "vm_delay_min": 10,
     },
+    63: {
+        "load_profile": "test_recap-d_02_dw.dat",
+        "start_real": "2022-05-18T13:51:08Z",
+        "end_real": "2022-05-18T16:38:34Z",
+        "vm_delay_min": 10,
+    },
 }
 
 RNN_RUNS = {
@@ -40,6 +46,15 @@ RNN_RUNS = {
         "model": "rnn-10_sum_2021-09-26.pt",
         "scaler": "rnn_scaler.joblib",
         "input_size": 10,
+        "vm_delay_min": 10,
+    },
+    34: {
+        "load_profile": "test_recap-d_02_dw.dat",
+        "start_real": "2022-05-16T16:32:43Z",
+        "end_real": "2022-05-16T18:46:36Z",
+        "model": "rnn-20_sum_2021-07-22.pt",
+        "scaler": "rnn_scaler.joblib",
+        "input_size": 20,
         "vm_delay_min": 10,
     },
 }

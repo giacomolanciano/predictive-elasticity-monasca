@@ -9,9 +9,9 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.11.2
 #   kernelspec:
-#     display_name: pred-as-os
+#     display_name: pred-ops-os
 #     language: python
-#     name: pred-as-os
+#     name: pred-ops-os
 # ---
 
 # %%
@@ -20,7 +20,14 @@ import sys
 import holoviews as hv
 import numpy as np
 import pandas as pd
-from constants import ARIMA_RUNS, DATA_ROOT, LIN_RUNS, MLP_RUNS, RNN_RUNS, STATIC_RUNS
+from constants import (
+    ARIMA_RUNS,
+    DATA_ROOT,
+    LIN_RUNS,
+    MLP_RUNS,
+    RNN_RUNS,
+    STATIC_RUNS,
+)
 from holoviews.operation.datashader import datashade
 
 hv.extension("bokeh")
@@ -28,13 +35,13 @@ pd.options.plotting.backend = "holoviews"
 
 # %%
 static_runs_lim = (60, None)
-static_runs_exclude = set([])
+static_runs_exclude = set([61, 62])
 lin_runs_lim = (9, None)
 lin_runs_exclude = set([10, 12, 14])
 mlp_runs_lim = (7, None)
 mlp_runs_exclude = set([8])
 rnn_runs_lim = (26, None)
-rnn_runs_exclude = set([27, 28, 31, 32])
+rnn_runs_exclude = set([27, 28, 31, 32, 33])
 arima_runs_lim = (4, None)
 arima_runs_exclude = set([])
 run_time_limit = None
@@ -51,48 +58,58 @@ times_label_list = []
 for times_file in sorted(DATA_ROOT.glob("*-times.csv")):
     ## filter-out excluded result files
     i = int(times_file.name.split("-")[-2])
-    if "-rnn-" in times_file.name:
+    if "-as-rnn-" in times_file.name:
         if i in rnn_runs_exclude:
             continue
         if rnn_runs_lim[0] is not None and i < rnn_runs_lim[0]:
             continue
         if rnn_runs_lim[1] is not None and i > rnn_runs_lim[1]:
             continue
+        if rnn_runs_lim[0] is None and rnn_runs_lim[1] is None:
+            continue
         label = "RNN"
         mapping = RNN_RUNS
-    elif "-mlp-" in times_file.name:
+    elif "-as-mlp-" in times_file.name:
         if i in mlp_runs_exclude:
             continue
         if mlp_runs_lim[0] is not None and i < mlp_runs_lim[0]:
             continue
         if mlp_runs_lim[1] is not None and i > mlp_runs_lim[1]:
             continue
+        if mlp_runs_lim[0] is None and mlp_runs_lim[1] is None:
+            continue
         label = "MLP"
         mapping = MLP_RUNS
-    elif "-lin-" in times_file.name:
+    elif "-as-lin-" in times_file.name:
         if i in lin_runs_exclude:
             continue
         if lin_runs_lim[0] is not None and i < lin_runs_lim[0]:
             continue
         if lin_runs_lim[1] is not None and i > lin_runs_lim[1]:
             continue
+        if lin_runs_lim[0] is None and lin_runs_lim[1] is None:
+            continue
         label = "LR"
         mapping = LIN_RUNS
-    elif "-aim-" in times_file.name:
+    elif "-as-aim-" in times_file.name:
         if i in arima_runs_exclude:
             continue
         if arima_runs_lim[0] is not None and i < arima_runs_lim[0]:
             continue
         if arima_runs_lim[1] is not None and i > arima_runs_lim[1]:
             continue
+        if arima_runs_lim[0] is None and arima_runs_lim[1] is None:
+            continue
         label = "ARIMA"
         mapping = ARIMA_RUNS
-    else:
+    elif "-as-stc-" in times_file.name:
         if i in static_runs_exclude:
             continue
         if static_runs_lim[0] is not None and i < static_runs_lim[0]:
             continue
         if static_runs_lim[1] is not None and i > static_runs_lim[1]:
+            continue
+        if static_runs_lim[0] is None and static_runs_lim[1] is None:
             continue
         label = "Static"
         mapping = STATIC_RUNS
@@ -101,6 +118,14 @@ for times_file in sorted(DATA_ROOT.glob("*-times.csv")):
 
     print(times_file)
     df = pd.read_csv(times_file, header=None, names=["timestamp", "delay"])
+
+    # drop rows containing 0 because:
+    # - timestamp = 0 means the request was never sent
+    # - delay = 0 means the response was never received
+    len_before = len(df)
+    df.drop(df[(df["timestamp"] == 0) | (df["delay"] == 0)].index, inplace=True)
+    len_after = len(df)
+    print(f"dropped {len_before - len_after}/{len_before} rows.")
 
     # convert microsec to millisec
     df = df / 1000
@@ -111,13 +136,18 @@ for times_file in sorted(DATA_ROOT.glob("*-times.csv")):
     if run_time_limit:
         df = df[df["timestamp"] < run_time_limit]
 
-    ## compute percentiles
+    # estract run parameters
     stats_col_name = f"{label}"
     input_size = mapping[i].get("input_size")
     vm_delay_min = mapping[i].get("vm_delay_min")
-    if input_size:
-        stats_col_name += f" ({input_size:02})"
+    load_profile = mapping[i].get("load_profile")
 
+    stats_col_name += f" ({input_size:02}"
+    if load_profile:
+        stats_col_name += f" | {load_profile}"
+    stats_col_name += ")"
+
+    ## compute percentiles
     # overall stats
     descr_stats_table[stats_col_name] = pd.Series(
         {
@@ -207,19 +237,23 @@ for group in ordered_groups:
 
 printable_table = descr_stats_table[ordered_cols].T
 col_fmt = "r" + "r" * printable_table.columns.size
-printable_table.round(2).to_latex(sys.stdout, column_format=col_fmt)
+print(printable_table.round(2).style.to_latex(column_format=col_fmt, hrules=True))
 printable_table
 
 # %%
 # render client-side delays stats table (focus on 1st peak)
 printable_table_peak_1 = descr_stats_table_peak_1[ordered_cols].T
-printable_table_peak_1.round(2).to_latex(sys.stdout, column_format=col_fmt)
+print(
+    printable_table_peak_1.round(2).style.to_latex(column_format=col_fmt, hrules=True)
+)
 printable_table_peak_1
 
 # %%
 # render client-side delays stats table (focus on 2nd peak)
 printable_table_peak_2 = descr_stats_table_peak_2[ordered_cols].T
-printable_table_peak_2.round(2).to_latex(sys.stdout, column_format=col_fmt)
+print(
+    printable_table_peak_2.round(2).style.to_latex(column_format=col_fmt, hrules=True)
+)
 printable_table_peak_2
 
 # %%
