@@ -11,9 +11,9 @@ $(DEFAULT_VENV_DIR)/py38/:
 	$@/bin/pip install -U pip
 	$@/bin/pip install -r pip-requirements.txt
 	$@/bin/pip install -r pip-requirements-dev.txt
-	$@/bin/python3 -m ipykernel install --user --name=pred-as-os
+	$@/bin/python3 -m ipykernel install --user --name=pred-ops-os
 	@echo "Run \`source $@/bin/activate\` to start the virtual env."
 
 data:
-	wget https://zenodo.org/record/5878137/files/EXT2022-data.tar.bz2
+	wget https://zenodo.org/record/6581782/files/EXT2022-data.tar.bz2
 	tar --use-compress-program=pbzip2 -xvf EXT2022-data.tar.bz2
