@@ -7,9 +7,6 @@
 [Giacomo Lanciano](mailto:giacomo.lanciano@sns.it)\*, Filippo Galli, Tommaso Cucinotta, Davide Bacciu, Andrea Passarella<br>
 *Under review*<br>
 
-This work extends our [previous one](https://github.com/giacomolanciano/UCC2021-predictive-auto-scaling-openstack)
-appeared at the *IEEE/ACM 14th International Conference on Utility and Cloud Computing (UCC'21)*.
-
 *Abstract:* This paper introduces an architecture for *predictive* cloud operations, with a focus on auto-scaling
 policies that rely on forecasting the state of cloud services in the short-term future. Traditionally, auto-scaling
 consists in *reactive* automation rules that, e.g., trigger scaling actions when current values of resource consumption
@@ -36,7 +33,7 @@ In what follows, we provide instructions to install the required dependencies, a
 testing environment.
 
 The test-bed used for our experiments is a Dell R630 dual-socket, equipped with: 2 Intel Xeon E5-2640 v4 CPUs (2.40 GHz,
-20 virtual cores each); 64 GB of RAM; Ubuntu `20.04.2 LTS` operating system; version `5.4.0` of the Linux kernel.
+20 virtual cores each); 64 GB of RAM; Ubuntu `20.04.2 LTS` operating system; version `5.17.0` of the Linux kernel.
 
 ### Data
 
@@ -53,25 +50,25 @@ apt-get install pbzip2 tar wget
 To start the download utility, run `make data` from the root of this repo. Once the download terminates, the following
 files are placed under `data/`:
 
-| File                                                        | Description                                                  |
-| :---------------------------------------------------------- | :----------------------------------------------------------- |
-| `amphora-x64-haproxy.qcow2`                                 | Image used to create Octavia amphorae                        |
-| `distwalk-{lin,aim,mlp,rnn,stc}-<INCREMENTAL-ID>.csv`       | Run traces (base for plots in `notebooks/results_load.py`)   |
-| `distwalk-{lin,aim,mlp,rnn,stc}-<INCREMENTAL-ID>.log`       | `distwalk` run log                                           |
-| `distwalk-{lin,aim,mlp,rnn,stc}-<INCREMENTAL-ID>-pred.json` | Predictive metric data exported from Monasca DB              |
-| `distwalk-{lin,aim,mlp,rnn,stc}-<INCREMENTAL-ID>-real.json` | Actual metric data exported from Monasca DB                  |
-| `distwalk-{lin,aim,mlp,rnn,stc}-<INCREMENTAL-ID>-times.csv` | Client-side response time for each request sent during a run |
-| `model_dumps/*`                                             | Dumps of the models and data scalers used for the validation |
-| `predictor.log`                                             | `monasca-predictor` log                                      |
-| `predictor-times.log`                                       | `monasca-predictor` log (timing info only)                   |
-| `predictor-times-{lin,aim,mlp,rnn}.csv`                     | `monasca-predictor` timing info, grouped by predictor        |
-| `super_steep_behavior.csv`                                  | Dataset used to train ARIMA, MLP and RNN models              |
-| `test_behavior_03_distwalk-6t_+10.dat`                      | `distwalk` load trace                                        |
-| `ubuntu-20.04-min-distwalk.img`                             | Image used to create Nova instances for the scaling group    |
+| File                                                           | Description                                                  |
+| :------------------------------------------------------------- | :----------------------------------------------------------- |
+| `amphora-x64-haproxy.qcow2`                                    | Image used to create Octavia amphorae                        |
+| `distwalk-as-{lin,aim,mlp,rnn,stc}-<INCREMENTAL-ID>.csv`       | Run traces (base for plots in `notebooks/results_load.py`)   |
+| `distwalk-as-{lin,aim,mlp,rnn,stc}-<INCREMENTAL-ID>.log`       | `distwalk` run log                                           |
+| `distwalk-as-{lin,aim,mlp,rnn,stc}-<INCREMENTAL-ID>-pred.json` | Predictive metric data exported from Monasca DB              |
+| `distwalk-as-{lin,aim,mlp,rnn,stc}-<INCREMENTAL-ID>-real.json` | Actual metric data exported from Monasca DB                  |
+| `distwalk-as-{lin,aim,mlp,rnn,stc}-<INCREMENTAL-ID>-times.csv` | Client-side response time for each request sent during a run |
+| `model_dumps/*`                                                | Dumps of the models and data scalers used for the validation |
+| `predictor.log`                                                | `monasca-predictor` log                                      |
+| `predictor-times.log`                                          | `monasca-predictor` log (timing info only)                   |
+| `predictor-times-{lin,aim,mlp,rnn}.csv`                        | `monasca-predictor` timing info, grouped by predictor        |
+| `super_steep_behavior.csv`                                     | Dataset used to train ARIMA, MLP and RNN models              |
+| `test_behavior_03_distwalk-6t_+10.dat`                         | `distwalk` load trace (synthetic)                            |
+| `ubuntu-20.04-min-distwalk-4ca3b54.img`                        | Image used to create Nova instances for the scaling group    |
 
 ### Python
 
-Python `3.8.5` must be installed in order to: install OpenStack (with Kolla), run `monasca-predictor`, run the Python
+Python `3.8.10` must be installed in order to: install OpenStack (with Kolla), run `monasca-predictor`, run the Python
 code included in this repo.
 
 If needed, consider using a tool like [`pyenv`](https://github.com/pyenv/pyenv) to easily install and manage multiple
@@ -130,9 +127,9 @@ otherwise specified), complete the configuration by applying these steps:
    openstack image create \
        --container-format bare \
        --disk-format qcow2 \
-       --file data/ubuntu-20.04-min-distwalk.img \
+       --file data/ubuntu-20.04-min-distwalk-4ca3b54.img \
        --public \
-       ubuntu-20.04-min-distwalk
+       ubuntu-20.04-min-distwalk-4ca3b54
    ```
 
 4. As it is the case for our test-bed, Octavia may get stuck at creating amphorae due to the provider network subnet
@@ -289,7 +286,7 @@ steps to apply to launch a new run:
    the chosen time-series forecasting model type:
 
    ```bash
-   ./run.sh --log data/distwalk-{lin,aim,mlp,rnn,stc}-<INCREMENTAL-ID>.log
+   ./run.sh --log data/distwalk-as-{lin,aim,mlp,rnn,stc}-<INCREMENTAL-ID>.log
    ```
 
    The other output files will be created under `data/` and named accordingly. Such naming convention is the one
@@ -337,6 +334,9 @@ steps to apply to launch a new run:
    update.
 
 ## Citation
+
+This work extends our [previous one](https://github.com/giacomolanciano/UCC2021-predictive-auto-scaling-openstack)
+appeared at the *IEEE/ACM 14th International Conference on Utility and Cloud Computing (UCC'21)*.
 
 Please consider citing:
 
