@@ -5,6 +5,8 @@ set -o pipefail
 
 source config.conf
 
+metric="$real_metric"
+
 # NOTE: use arrays, not strings, to implement arguments lists that may end up
 # to be empty. If a variable is quoted to prevent undesired word splitting,
 # empty strings are expanded as "", whereas empty arrays are expanded as an

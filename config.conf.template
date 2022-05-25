@@ -26,13 +26,17 @@ ramp_step_secs=60
 # Path to file containing a sequence of sending rates to be used by each client
 # thread
 rates_file="./data/test_behavior_03_distwalk-6t_+10.dat"
+# rates_file="./data/test_recap-d_02_dw.dat"
 
 ### OpenStack ###
 # The ID of the Senlin cluster
 cluster_id= ### TO BE FILLED ###
 
-# The default metric to be exported from Monasca DB
-metric="cpu.utilization_perc"
+# The default *actual* metric to be exported from Monasca DB
+real_metric="cpu.utilization_perc"
+
+# The default *predictive* metric to be exported from Monasca DB
+pred_metric= ### TO BE FILLED ###
 
 # The ID of the scaling group
 scale_group_id= ### TO BE FILLED (ID outputted by the Heat stack) ###

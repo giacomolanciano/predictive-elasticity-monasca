@@ -35,7 +35,6 @@ Main:
       #
       # lookback_period_seconds: 300
       # lookback_period_seconds: 600
-      # lookback_period_seconds: 900
       lookback_period_seconds: 1200
       #
       # LR

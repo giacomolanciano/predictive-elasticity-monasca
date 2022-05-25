@@ -1,13 +1,13 @@
 #!/bin/bash
 
-set -e
-set -o pipefail
+set -eo pipefail
 
 source config.conf
 
 datetime_format="%Y-%m-%dT%H:%M:%SZ"
 dry_run=0
 log_file=""
+export_pred=0
 
 # NOTE: use arrays, not strings, to implement arguments lists that may end up
 # to be empty. If a variable is quoted to prevent undesired word splitting,
@@ -29,6 +29,7 @@ Options:
     -d | --dry-run              Do not actually start distwalk, only print parameters
     -h | --help                 Print this message and exit
     --log /path/to/file.log     Redirect logs
+    --pred                      Export also predictive metric
 
 Any other provided option is assumed to be one of the following distwalk client option:
 
@@ -50,6 +51,9 @@ while [[ $# -gt 0 ]]; do
         --log)
             log_file="$2"
             shift
+            ;;
+        --pred)
+            export_pred=1
             ;;
         -C | --comp-time)
             computation_usecs=$2
@@ -96,6 +100,9 @@ log_file=$(realpath "$log_file")
 if [[ -z $log_file ]]; then
     echo "ERROR: log file not specified."
     exit 1
+elif [[ -f $log_file ]]; then
+    echo "ERROR: $log_file already exists."
+    exit 1
 fi
 
 positional_params+=(
@@ -138,17 +145,16 @@ if [[ $dry_run -eq 1 ]]; then
     exit 0
 fi
 
+log_file_prefix=${log_file%.*}
+
 start_datetime=$(date -u +$datetime_format)
-time $distwalk_client_cmd "$@" 2>&1 | tee -a "$log_file"
+time $distwalk_client_cmd "$@" 2> "$log_file_prefix"-stderr.log | tee -a "$log_file"
 end_datetime=$(date -u +$datetime_format)
 
 (
     echo "        \"start_real\": \"$start_datetime\","
     echo "        \"end_real\": \"$end_datetime\","
 ) | tee -a "$log_file"
-
-# log_file_prefix=$(basename "$log_file" | cut -d"." -f1)
-log_file_prefix=${log_file%.*}
 
 echo "Exporting logs from Nova instances..."
 ./server-logs-export.sh "$log_file_prefix"
@@ -157,5 +163,7 @@ echo "Exporting client-side delays from log..."
 ./distwalk-log2csv.sh "$log_file" > "$log_file_prefix"-times.csv
 
 echo "Exporting measurements from Monasca..."
-./monasca-export.sh -j "$start_datetime" "$end_datetime" pred.group.sum.cpu.utilization_perc > "$log_file_prefix"-pred.json
-./monasca-export.sh -j "$start_datetime" "$end_datetime" > "$log_file_prefix"-real.json
+if [[ $export_pred -eq 1 ]]; then
+    ./monasca-export.sh -j "$start_datetime" "$end_datetime" "$pred_metric" > "$log_file_prefix"-pred.json
+fi
+./monasca-export.sh -j "$start_datetime" "$end_datetime" "$real_metric" > "$log_file_prefix"-real.json
