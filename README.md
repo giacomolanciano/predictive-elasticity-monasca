@@ -37,11 +37,11 @@ The test-bed used for our experiments is a Dell R630 dual-socket, equipped with:
 
 ### Data
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.5878137.svg)](https://doi.org/10.5281/zenodo.5878137)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.5878136.svg)](https://doi.org/10.5281/zenodo.5878136)
 
-The data used for this work are [publicly available](https://zenodo.org/record/5878137/files/EXT2022-data.tar.bz2). We
-recommend using our utility to automatically download, decompress and place such data in the location expected by our
-tools. To do that, make sure the required dependencies are installed by running
+The data used for this work are publicly available. We recommend using our utility to automatically download, decompress
+and place such data in the location expected by our tools. To do that, make sure the required dependencies are installed
+by running
 
 ```bash
 apt-get install pbzip2 tar wget
@@ -64,6 +64,7 @@ files are placed under `data/`:
 | `predictor-times-{lin,aim,mlp,rnn}.csv`                        | `monasca-predictor` timing info, grouped by predictor        |
 | `super_steep_behavior.csv`                                     | Dataset used to train ARIMA, MLP and RNN models              |
 | `test_behavior_03_distwalk-6t_+10.dat`                         | `distwalk` load trace (synthetic)                            |
+| `test_recap-d_02_dw.dat`                                       | `distwalk` load trace (real)                                 |
 | `ubuntu-20.04-min-distwalk-4ca3b54.img`                        | Image used to create Nova instances for the scaling group    |
 
 ### Python
@@ -286,12 +287,13 @@ steps to apply to launch a new run:
    the chosen time-series forecasting model type:
 
    ```bash
-   ./run.sh --log data/distwalk-as-{lin,aim,mlp,rnn,stc}-<INCREMENTAL-ID>.log
+   ./run.sh [--pred] --log data/distwalk-as-{lin,aim,mlp,rnn,stc}-<INCREMENTAL-ID>.log
    ```
 
    The other output files will be created under `data/` and named accordingly. Such naming convention is the one
    expected by the provided Jupyter notebooks to automatically plot the results of the new run. When using the
-   predefined `distwalk` load trace, this process will take **~4 hours** to terminate.
+   predefined `distwalk` load trace, this process will take **~4 hours** to terminate. If running a predictive policy,
+   add `--pred` such that the predictive metric data are automatically exported from Monasca.
 
 6. Activate the `monasca-predictor` virtual env (see [provided instructions](#monasca-predictor)) and launch it by
    running
