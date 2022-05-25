@@ -12,7 +12,8 @@ if [[ -f "$octavia_config_dir/client_ca.cert.pem" ]] \
     echo "Octavia certificates exist."
 else
     echo "Generating Octavia certificates..."
-    kolla-ansible octavia-certificates
+    sudo kolla-ansible octavia-certificates
+    sudo chown stack:stack "$octavia_config_dir"/*.pem
     echo "Done."
 fi
 
@@ -22,6 +23,7 @@ echo "Done."
 
 echo "Generating /etc/kolla/*-openrc.sh..."
 kolla-ansible -i ansible/multinode post-deploy
+sudo chmod g+r /etc/kolla/*-openrc.sh
 echo "Done."
 
 ./monasca-setup.sh
