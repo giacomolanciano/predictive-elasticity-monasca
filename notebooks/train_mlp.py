@@ -17,18 +17,15 @@
 import random
 from datetime import datetime
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
-from sklearn.preprocessing import MinMaxScaler
+from common import MLP, gen_dataset, run2seq, train_batch_mlp
+from constants import DATA_ROOT, DATETIME_FORMAT
 from sklearn.linear_model import LinearRegression
-
-from constants import DATETIME_FORMAT, DATA_ROOT
-from common import MLP, train_batch_mlp, gen_dataset, run2seq
-
-import matplotlib.pyplot as plt
-
+from sklearn.preprocessing import MinMaxScaler
 
 INPUT_SAMPLES = 5
 PREDICTION_OFFSET = 15
@@ -58,6 +55,8 @@ for i in range(5000):
     lr_space.append(lr)
     lr = max(0.001, lr * 0.995)
 
+train_start = datetime.now()
+
 for i in range(iterations):
     mlp.zero_grad()
     lr = lr_space[i]
@@ -67,6 +66,11 @@ for i in range(iterations):
     if i % 50 == 49:
         print(f"iter: {i} loss: {loss}, lr {lr:.5f}")
 
+train_end = datetime.now()
+
+
+# %%
+train_end - train_start
 
 # %%
 current_date = datetime.today().strftime("%Y-%m-%d")
@@ -78,7 +82,9 @@ torch.save(mlp.state_dict(), dump_filename)
 # ## Test
 
 # %%
-data = scaler.transform(run2seq(DATA_ROOT / "train_super_steep_behavior.csv", DATETIME_FORMAT))
+data = scaler.transform(
+    run2seq(DATA_ROOT / "train_super_steep_behavior.csv", DATETIME_FORMAT)
+)
 
 
 # %%

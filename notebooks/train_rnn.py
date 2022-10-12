@@ -115,6 +115,8 @@ momentum = []
 for p in net.parameters():
     momentum.append(torch.zeros_like(p))
 
+train_start = datetime.now()
+
 for i in range(iterations):
     net.zero_grad()
     lr = lr_space[i]
@@ -131,6 +133,11 @@ for i in range(iterations):
         print(f"iter: {i} loss: {loss}, lr {lr:.5f}")
     loss_storage.append(loss)
 
+train_end = datetime.now()
+
+
+# %%
+train_end - train_start
 
 # %%
 current_date = datetime.today().strftime("%Y-%m-%d")

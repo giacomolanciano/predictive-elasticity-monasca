@@ -42,7 +42,12 @@ data_scaled = scaler.transform(data.reshape(-1, 1)).reshape(-1)
 data_scaled
 
 # %%
+train_start = datetime.now()
 model = ARIMA(data_scaled, order=(INPUT_SAMPLES, DERIVATIVE, 0)).fit()
+train_end = datetime.now()
+
+# %%
+train_end - train_start
 
 # %%
 current_date = datetime.today().strftime("%Y-%m-%d")
