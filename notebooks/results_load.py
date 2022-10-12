@@ -30,7 +30,7 @@ from constants import (
     RNN_RUNS,
     STATIC_RUNS,
 )
-from sklearn.metrics import mean_absolute_error, mean_absolute_percentage_error
+from sklearn.metrics import mean_absolute_error, mean_absolute_percentage_error, mean_squared_error
 
 hv.extension("bokeh")
 pd.options.plotting.backend = "holoviews"
@@ -46,6 +46,7 @@ rnn_runs_lim = (26, None)
 rnn_runs_exclude = set([27, 28, 31, 32, 33])
 arima_runs_lim = (4, None)
 arima_runs_exclude = set([])
+
 run_time_limit = None
 
 # %% tags=[]
@@ -253,6 +254,9 @@ for label, real_df, pred_df in df_list:
         # interpolate missing predictions
         table[pred_metric] = table[pred_metric].interpolate()
 
+        # compute raw prediction values (as initially outputted by the model)
+        table["raw_pred"] = table[pred_metric] * table["count"]
+
     table.reset_index(inplace=True)
 
     # insert distwalk trace data to align timestamps
@@ -279,7 +283,7 @@ for label, real_df, pred_df in df_list:
     traces.append(hv.HLine(80).opts(color="black", line_dash="dashed"))
 
     # plot distwalk trace
-    distwalk_trace_label = "distwalk thread trace"
+    distwalk_trace_label = "distwalk"
     traces.append(
         hv.Scatter(
             (table.index, table["distwalk"].values),
@@ -299,7 +303,7 @@ for label, real_df, pred_df in df_list:
     instance_idx = 0
     for group_label in orig_cols:
         if group_label in table.columns:
-            load_trace_label = f"instance {instance_idx}"
+            load_trace_label = f"VM {instance_idx}"
             traces.append(
                 hv.Scatter(
                     (table.index, table[group_label].values),
@@ -319,7 +323,7 @@ for label, real_df, pred_df in df_list:
 
     # plot predictor output
     if pred_df is not None:
-        prediction_trace_label = "predicted cluster avg"
+        prediction_trace_label = "prediction"
         traces.append(
             hv.Scatter(
                 (table.index, table[pred_metric].values),
@@ -335,6 +339,22 @@ for label, real_df, pred_df in df_list:
             ).opts(color="#d62728")
         )
 
+        # compute prediction errors
+        raw_pred_df = pd.concat(
+            [table[["raw_pred"]].shift(15), table[["sum"]]], axis=1
+        ).dropna(axis=0, how="any")
+
+        mape = mean_absolute_percentage_error(
+            raw_pred_df["sum"], raw_pred_df["raw_pred"]
+        )
+        mae = mean_absolute_error(
+            raw_pred_df["sum"], raw_pred_df["raw_pred"]
+        )
+        mse = mean_squared_error(
+            raw_pred_df["sum"], raw_pred_df["raw_pred"]
+        )
+        print(f"MAPE: {mape:.2f} | MAE: {mae:.2f} | MSE: {mse:.2f}")
+
     title = f"{label} - load: {load_file_basename}"
     input_size = mapping[index].get("input_size")
     vm_delay_min = mapping[index].get("vm_delay_min")
@@ -349,18 +369,16 @@ for label, real_df, pred_df in df_list:
             width=950,
             height=550,
             show_grid=True,
-            title=title,
             xlabel="time [min]",
             ylabel="CPU usage [%]",
             legend_position="top_right",
-            # legend_cols=2, # still buggy: https://github.com/holoviz/holoviews/issues/3780
-            legend_opts={'background_fill_alpha': .5, 'padding': 20, 'spacing': 1},
+            legend_opts={"background_fill_alpha": 0.5},
             fontsize={
                 "title": 13,
-                "legend": 12,
-                "labels": 15,
-                "xticks": 13,
-                "yticks": 13,
+                "legend": 16,
+                "labels": 20,
+                "xticks": 20,
+                "yticks": 20,
             },
             padding=0.05,
         )

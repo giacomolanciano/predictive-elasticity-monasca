@@ -16,6 +16,7 @@
 
 # %%
 import sys
+from datetime import datetime, timedelta
 
 import holoviews as hv
 import numpy as np
@@ -28,7 +29,7 @@ from constants import (
     RNN_RUNS,
     STATIC_RUNS,
 )
-from holoviews.operation.datashader import datashade
+from holoviews.operation.datashader import datashade, dynspread, rasterize
 
 hv.extension("bokeh")
 pd.options.plotting.backend = "holoviews"
@@ -44,15 +45,35 @@ rnn_runs_lim = (26, None)
 rnn_runs_exclude = set([27, 28, 31, 32, 33])
 arima_runs_lim = (4, None)
 arima_runs_exclude = set([])
+
 run_time_limit = None
 
 # %% [markdown]
 # ## Client-side response times plots
 
 # %%
+color_cycle = hv.Cycle(
+    [
+        "#d62728",
+        "#e5ae38",
+        "#6d904f",
+        "#8b8b8b",
+        "#17becf",
+        "#9467bd",
+        "#e377c2",
+        "#8c564b",
+        "#bcbd22",
+        "#1f77b4",
+    ]
+)
+opts = [hv.opts.Curve(tools=["hover"])]
+opts_scatter = hv.opts.Scatter(size=5, marker="o", tools=["hover"])
+
+# %%
 descr_stats_table = pd.DataFrame()
 descr_stats_table_peak_1 = pd.DataFrame()
 descr_stats_table_peak_2 = pd.DataFrame()
+descr_stats_table_peak_real = pd.DataFrame()
 times_fig_list = []
 times_label_list = []
 for times_file in sorted(DATA_ROOT.glob("*-times.csv")):
@@ -119,13 +140,17 @@ for times_file in sorted(DATA_ROOT.glob("*-times.csv")):
     print(times_file)
     df = pd.read_csv(times_file, header=None, names=["timestamp", "delay"])
 
-    # drop rows containing 0 because:
-    # - timestamp = 0 means the request was never sent
-    # - delay = 0 means the response was never received
+    # drop rows containing 0 beacuse:
+    # - timestamp == 0 means the request was never sent
+    # - delay == 0 means the response was never received
     len_before = len(df)
     df.drop(df[(df["timestamp"] == 0) | (df["delay"] == 0)].index, inplace=True)
     len_after = len(df)
     print(f"dropped {len_before - len_after}/{len_before} rows.")
+
+    # set datetimeindex for easy resampling
+    df["index"] = pd.to_datetime(df["timestamp"], unit="us")
+    df.set_index("index", inplace=True)
 
     # convert microsec to millisec
     df = df / 1000
@@ -137,123 +162,301 @@ for times_file in sorted(DATA_ROOT.glob("*-times.csv")):
         df = df[df["timestamp"] < run_time_limit]
 
     # estract run parameters
-    stats_col_name = f"{label}"
-    input_size = mapping[i].get("input_size")
-    vm_delay_min = mapping[i].get("vm_delay_min")
-    load_profile = mapping[i].get("load_profile")
-
-    stats_col_name += f" ({input_size:02}"
-    if load_profile:
-        stats_col_name += f" | {load_profile}"
-    stats_col_name += ")"
+    run_params = {
+        "run_type": label,
+        "input_size": mapping[i].get("input_size"),
+        "vm_delay_min": mapping[i].get("vm_delay_min"),
+        "anomaly": mapping[i].get("anomaly"),
+        "load_profile": mapping[i].get("load_profile"),
+        "raw_data": f"{times_file.name}",
+    }
 
     ## compute percentiles
     # overall stats
-    descr_stats_table[stats_col_name] = pd.Series(
-        {
-            "avg (ms)": df["delay"].mean(),
-            "p90 (ms)": df["delay"].quantile(0.9),
-            "p95 (ms)": df["delay"].quantile(0.95),
-            "p99 (ms)": df["delay"].quantile(0.99),
-            "p99.5 (ms)": df["delay"].quantile(0.995),
-            "p99.9 (ms)": df["delay"].quantile(0.999),
-        }
+    descr_stats_table = pd.concat(
+        [
+            descr_stats_table,
+            pd.DataFrame(
+                [
+                    {
+                        **run_params,
+                        "avg (ms)": df["delay"].mean(),
+                        "p50 (ms)": df["delay"].quantile(0.5),
+                        "p90 (ms)": df["delay"].quantile(0.9),
+                        "p95 (ms)": df["delay"].quantile(0.95),
+                        "p99 (ms)": df["delay"].quantile(0.99),
+                        "p99.5 (ms)": df["delay"].quantile(0.995),
+                        "p99.9 (ms)": df["delay"].quantile(0.999),
+                        # "max (ms)": df["delay"].max(),
+                    }
+                ],
+            ),
+        ]
+    )
+
+    # peak real data
+    df_peak_real = df[df["timestamp"].between(45, 90)]
+    descr_stats_table_peak_real = pd.concat(
+        [
+            descr_stats_table_peak_real,
+            pd.DataFrame(
+                [
+                    {
+                        **run_params,
+                        "avg (ms)": df_peak_real["delay"].mean(),
+                        "p50 (ms)": df_peak_real["delay"].quantile(0.5),
+                        "p90 (ms)": df_peak_real["delay"].quantile(0.9),
+                        "p95 (ms)": df_peak_real["delay"].quantile(0.95),
+                        "p99 (ms)": df_peak_real["delay"].quantile(0.99),
+                        "p99.5 (ms)": df_peak_real["delay"].quantile(0.995),
+                        "p99.9 (ms)": df_peak_real["delay"].quantile(0.999),
+                        # "max (ms)": df_peak_real["delay"].max(),
+                    }
+                ],
+            ),
+        ]
     )
 
     # 1st peak stats
     df_peak_1 = df[df["timestamp"].between(0, 120)]
-    descr_stats_table_peak_1[stats_col_name] = pd.Series(
-        {
-            "avg (ms)": df_peak_1["delay"].mean(),
-            "p90 (ms)": df_peak_1["delay"].quantile(0.9),
-            "p95 (ms)": df_peak_1["delay"].quantile(0.95),
-            "p99 (ms)": df_peak_1["delay"].quantile(0.99),
-            "p99.5 (ms)": df_peak_1["delay"].quantile(0.995),
-            "p99.9 (ms)": df_peak_1["delay"].quantile(0.999),
-        }
+    descr_stats_table_peak_1 = pd.concat(
+        [
+            descr_stats_table_peak_1,
+            pd.DataFrame(
+                [
+                    {
+                        **run_params,
+                        "avg (ms)": df_peak_1["delay"].mean(),
+                        "p50 (ms)": df_peak_1["delay"].quantile(0.5),
+                        "p90 (ms)": df_peak_1["delay"].quantile(0.9),
+                        "p95 (ms)": df_peak_1["delay"].quantile(0.95),
+                        "p99 (ms)": df_peak_1["delay"].quantile(0.99),
+                        "p99.5 (ms)": df_peak_1["delay"].quantile(0.995),
+                        "p99.9 (ms)": df_peak_1["delay"].quantile(0.999),
+                        # "max (ms)": df_peak_1["delay"].max(),
+                    }
+                ],
+            ),
+        ]
     )
 
     # 2nd peak stats
     df_peak_2 = df[df["timestamp"].between(121, 220)]
-    descr_stats_table_peak_2[stats_col_name] = pd.Series(
-        {
-            "avg (ms)": df_peak_2["delay"].mean(),
-            "p90 (ms)": df_peak_2["delay"].quantile(0.9),
-            "p95 (ms)": df_peak_2["delay"].quantile(0.95),
-            "p99 (ms)": df_peak_2["delay"].quantile(0.99),
-            "p99.5 (ms)": df_peak_2["delay"].quantile(0.995),
-            "p99.9 (ms)": df_peak_2["delay"].quantile(0.999),
-        }
+    descr_stats_table_peak_2 = pd.concat(
+        [
+            descr_stats_table_peak_2,
+            pd.DataFrame(
+                [
+                    {
+                        **run_params,
+                        "avg (ms)": df_peak_2["delay"].mean(),
+                        "p50 (ms)": df_peak_2["delay"].quantile(0.5),
+                        "p90 (ms)": df_peak_2["delay"].quantile(0.9),
+                        "p95 (ms)": df_peak_2["delay"].quantile(0.95),
+                        "p99 (ms)": df_peak_2["delay"].quantile(0.99),
+                        "p99.5 (ms)": df_peak_2["delay"].quantile(0.995),
+                        "p99.9 (ms)": df_peak_2["delay"].quantile(0.999),
+                        # "max (ms)": df_peak_2["delay"].max(),
+                    }
+                ],
+            ),
+        ]
     )
 
     ## filter out outliers before plotting
     df = df[df["delay"] > 0]
     df = df[df["delay"] <= df["delay"].quantile(0.999)]
 
-    ## build scatter plot
-    times_fig = hv.Overlay(
-        [
+    # rolling stats
+    quantiles = [
+        0.5,
+        0.9,
+        # 0.95,
+        0.99,
+        # 0.995,
+        # 0.999,
+    ]
+    traces = []
+    for q in quantiles:
+        df_res = df["delay"].resample("5min", closed="right", label="right").quantile(q)
+        df_res.index = [x * 5 for x in range(1, df_res.index.size + 1)]
+
+        q_label = f"5-mins p{q*100:g}"
+        traces.append(
             hv.Scatter(
-                (df["timestamp"].values, df["delay"].values),
-                label=stats_col_name,
+                (df_res.index, df_res.values),
+                label=q_label,
             )
-        ]
-    ).opts(
-        width=950,
-        height=550,
-        show_grid=True,
-        title=f"{times_file.name}",
-        xlabel="time [min]",
-        ylabel="delay [ms]",
-        legend_position="top_left",
-        fontsize={
-            "title": 15,
-            "legend": 15,
-            "labels": 15,
-            "xticks": 13,
-            "yticks": 13,
-        },
-        logy=True,
+            .opts(color=color_cycle)
+            .opts(opts_scatter)
+        )
+        traces.append(
+            hv.Curve(
+                (df_res.index, df_res.values),
+                label=q_label,
+            ).opts(color=color_cycle)
+        )
+
+    ## build scatter plot
+    # traces.append(
+    #     rasterize(
+    #         hv.Scatter(
+    #             (df["timestamp"].values, df["delay"].values),
+    #         ),
+    #         pixel_ratio=2,
+    #     ).opts(
+    #         cmap="Blues",
+    #         # cmap="bkr",
+    #         cnorm="eq_hist",
+    #         rescale_discrete_levels=True,
+    #     )
+    # )
+    times_fig = (
+        hv.Overlay(traces)
+        .opts(
+            width=950,
+            height=550,
+            show_grid=True,
+            # title=f"{times_file.name}",
+            xlabel="time [min]",
+            ylabel="delay [ms]",
+            legend_position="top_right",
+            fontsize={
+                "title": 13,
+                "legend": 16,
+                "labels": 20,
+                "xticks": 20,
+                "yticks": 20,
+            },
+            logy=True,
+        )
+        .opts(opts)
     )
+    # times_fig = times_fig.collate() # NOTE: decomment when including rasterized scatterplot
     times_fig_list.append(times_fig)
     times_label_list.append(times_file.stem)
 
-times_layout = datashade(hv.Layout(times_fig_list).cols(1).opts(shared_axes=False))
+descr_stats_table.set_index(["run_type", "input_size"], inplace=True)
+descr_stats_table.sort_index(inplace=True)
+
+descr_stats_table_peak_real.set_index(["run_type", "input_size"], inplace=True)
+descr_stats_table_peak_real.sort_index(inplace=True)
+
+descr_stats_table_peak_1.set_index(["run_type", "input_size"], inplace=True)
+descr_stats_table_peak_1.sort_index(inplace=True)
+
+descr_stats_table_peak_2.set_index(["run_type", "input_size"], inplace=True)
+descr_stats_table_peak_2.sort_index(inplace=True)
+
+# times_layout = datashade(hv.Layout(times_fig_list).cols(1).opts(shared_axes=False))
+times_layout = hv.Layout(times_fig_list).cols(1).opts(shared_axes=False)
 times_layout
 
-# %% [markdown] tags=[] jp-MarkdownHeadingCollapsed=true
+# %% [markdown] tags=[] jp-MarkdownHeadingCollapsed=true tags=[]
 # ## Client-side response times tables
 
-# %%
-# render client-side delays stats table
-ordered_groups = ["Static", "LR", "ARIMA", "MLP", "RNN"]
-ordered_cols = []
-for group in ordered_groups:
-    ordered_cols += (
-        descr_stats_table.filter(regex=f"^{group}", axis=1)
-        .columns.sort_values()
-        .to_list()
-    )
+# %% [markdown] tags=[] jp-MarkdownHeadingCollapsed=true tags=[]
+# ### Overall
 
-printable_table = descr_stats_table[ordered_cols].T
+# %% tags=[]
+descr_stats_table.round(2)
+
+# %%
+printable_table = descr_stats_table[
+    descr_stats_table.filter(regex=f"\(ms\)$", axis=1).columns.to_list()
+].sort_index()
+printable_table.index = [
+    f"{run_type} ({input_size:02.0f})".replace(" (nan)", "")
+    for run_type, input_size in printable_table.index.to_flat_index()
+]
+printable_table.columns = [c.replace(" (ms)", "") for c in printable_table.columns]
+
 col_fmt = "r" + "r" * printable_table.columns.size
-print(printable_table.round(2).style.to_latex(column_format=col_fmt, hrules=True))
-printable_table
+print(
+    printable_table.style.format(precision=2)
+    .format_index(escape="latex", axis=1)
+    .format_index(escape="latex", axis=0)
+    .hide(axis=0, names=True)
+    .to_latex(column_format=col_fmt, hrules=True, sparse_index=False)
+)
+
+# %% [markdown] tags=[] jp-MarkdownHeadingCollapsed=true tags=[]
+# ### Real data peak
+
+# %% tags=[]
+# focus on real data peak
+descr_stats_table_peak_real.round(2)
 
 # %%
+printable_table = descr_stats_table_peak_real[
+    descr_stats_table_peak_real.filter(regex=f"\(ms\)$", axis=1).columns.to_list()
+].sort_index()
+printable_table.index = [
+    f"{run_type} ({input_size:02.0f})".replace(" (nan)", "")
+    for run_type, input_size in printable_table.index.to_flat_index()
+]
+printable_table.columns = [c.replace(" (ms)", "") for c in printable_table.columns]
+
+col_fmt = "r" + "r" * printable_table.columns.size
+print(
+    printable_table.style.format(precision=2)
+    .format_index(escape="latex", axis=1)
+    .format_index(escape="latex", axis=0)
+    .hide(axis=0, names=True)
+    .to_latex(column_format=col_fmt, hrules=True, sparse_index=False)
+)
+
+# %% [markdown] tags=[] jp-MarkdownHeadingCollapsed=true tags=[]
+# ### Synthetic data 1st peak
+
+# %% tags=[]
 # render client-side delays stats table (focus on 1st peak)
-printable_table_peak_1 = descr_stats_table_peak_1[ordered_cols].T
-print(
-    printable_table_peak_1.round(2).style.to_latex(column_format=col_fmt, hrules=True)
-)
-printable_table_peak_1
+descr_stats_table_peak_1.round(2)
 
 # %%
-# render client-side delays stats table (focus on 2nd peak)
-printable_table_peak_2 = descr_stats_table_peak_2[ordered_cols].T
+printable_table = descr_stats_table_peak_1[
+    descr_stats_table_peak_1.filter(regex=f"\(ms\)$", axis=1).columns.to_list()
+].sort_index()
+printable_table.index = [
+    f"{run_type} ({input_size:02.0f})".replace(" (nan)", "")
+    for run_type, input_size in printable_table.index.to_flat_index()
+]
+printable_table.columns = [c.replace(" (ms)", "") for c in printable_table.columns]
+# printable_table
+
+col_fmt = "r" + "r" * printable_table.columns.size
 print(
-    printable_table_peak_2.round(2).style.to_latex(column_format=col_fmt, hrules=True)
+    printable_table.style.format(precision=2)
+    .format_index(escape="latex", axis=1)
+    .format_index(escape="latex", axis=0)
+    .hide(axis=0, names=True)
+    .to_latex(column_format=col_fmt, hrules=True, sparse_index=False)
 )
-printable_table_peak_2
+
+# %% [markdown] tags=[] jp-MarkdownHeadingCollapsed=true tags=[]
+# ### Synthetic data 2nd peak
+
+# %% tags=[]
+# render client-side delays stats table (focus on 2nd peak)
+descr_stats_table_peak_2.round(2)
+
+# %%
+printable_table = descr_stats_table_peak_2[
+    descr_stats_table_peak_2.filter(regex=f"\(ms\)$", axis=1).columns.to_list()
+].sort_index()
+printable_table.index = [
+    f"{run_type} ({input_size:02.0f})".replace(" (nan)", "")
+    for run_type, input_size in printable_table.index.to_flat_index()
+]
+printable_table.columns = [c.replace(" (ms)", "") for c in printable_table.columns]
+
+col_fmt = "r" + "r" * printable_table.columns.size
+print(
+    printable_table.style.format(precision=2)
+    .format_index(escape="latex", axis=1)
+    .format_index(escape="latex", axis=0)
+    .hide(axis=0, names=True)
+    .to_latex(column_format=col_fmt, hrules=True, sparse_index=False)
+)
 
 # %%
