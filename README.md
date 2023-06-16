@@ -1,29 +1,12 @@
 [![GitHub license](https://img.shields.io/github/license/giacomolanciano/predictive-elasticity-monasca)](https://github.com/giacomolanciano/predictive-elasticity-monasca/blob/master/LICENSE)
 [![DOI](https://zenodo.org/badge/448377171.svg)](https://zenodo.org/badge/latestdoi/448377171)
-<!-- [![arXiv](https://img.shields.io/badge/arXiv-2111.02133-b31b1b.svg)](https://arxiv.org/abs/2111.02133) -->
 
 # Extending OpenStack Monasca for Predictive Elasticity Control
 
 [Giacomo Lanciano](mailto:giacomo.lanciano@sns.it)\*, Filippo Galli, Tommaso Cucinotta, Davide Bacciu, Andrea Passarella<br>
-*Under review*<br>
+*Big Data Mining and Analytics*, Special Issue on Big Data Computing for Internet of Things and Utility and Cloud Computing<br>
 
-*Abstract:* This paper introduces an architecture for *predictive* cloud operations, with a focus on auto-scaling
-policies that rely on forecasting the state of cloud services in the short-term future. Traditionally, auto-scaling
-consists in *reactive* automation rules that, e.g., trigger scaling actions when current values of resource consumption
-metrics breach predefined thresholds. Tuning such rules becomes cumbersome when new resources require non-negligible
-set-up times (commonplace in production environments). Our approach relies on *estimating* the evolution of relevant
-metrics, by applying time-series forecasting techniques to their historical data. For instance, our approach allows for
-anticipating load peaks, such that appropriate scaling actions can be triggered in advance, and new instances are ready
-to pick traffic when needed. We implemented our approach in OpenStack, leveraging and extending the monitoring
-capabilities of Monasca. By injecting short-term forecasts of standard metrics, we enable orchestration components to
-take scaling decisions based on the predicted state of a cloud service. We used a synthetic workload to evaluate the
-performance and overheads of predictive policies based on linear regression, ARIMA, feed-forward and recurrent neural
-networks, and compared them to a traditional policy. Our architecture is available as an open-source component, which
-allows for an easy customization of the predictors.
-
-<!-- *DOI:* [10.1145/3468737.3494104](https://doi.org/10.1145/3468737.3494104)
-
-*arXiv:* [arXiv:2111.02133](https://arxiv.org/abs/2111.02133) -->
+*DOI:* [10.26599/BDMA.2023.9020014](https://doi.org/10.26599/BDMA.2023.9020014)
 
 \* *contact author*
 
@@ -314,21 +297,16 @@ steps to apply to launch a new run:
    ```json
    ### TO BE FILLED (use the same ID of distwalk log) ###
    <INCREMENTAL-ID>: {
-        "load_profile": "test_behavior_03_distwalk-6t_+10.dat",
-
-        ### TO BE FILLED (see tail of distwalk log) ###
-        "start_real": ...,
-
-        ### TO BE FILLED (see tail of distwalk log) ###
-        "end_real": ...,
-
-        ### TO BE FILLED (see predictor.yaml, use dump file basename) ###
-        "model": ...,
-
-        ### TO BE FILLED (see predictor.yaml, use dump file basename) ###
-        "scaler": ...,
-
-        "input_size": 20,
+       "load_profile": "test_behavior_03_distwalk-6t_+10.dat",
+       ### TO BE FILLED (see tail of distwalk log) ###
+       "start_real": ...,
+       ### TO BE FILLED (see tail of distwalk log) ###
+       "end_real": ...,
+       ### TO BE FILLED (see predictor.yaml, use dump file basename) ###
+       "model": ...,
+       ### TO BE FILLED (see predictor.yaml, use dump file basename) ###
+       "scaler": ...,
+       "input_size": 20,
    },
    ```
 
@@ -343,10 +321,18 @@ appeared at the *IEEE/ACM 14th International Conference on Utility and Cloud Com
 Please consider citing:
 
 ```bibtex
-@inproceedings{Lanciano2021Predictive,
+@article{Lanciano2023extending,
+  title={{Extending OpenStack Monasca for Predictive Elasticity Control}},
+  journal={{Big Data Mining and Analytics}},
   author={Lanciano, Giacomo and Galli, Filippo and Cucinotta, Tommaso and Bacciu, Davide and Passarella, Andrea},
-  booktitle={2021 IEEE/ACM 14th International Conference on Utility and Cloud Computing (UCC)},
-  title={Predictive Auto-scaling with OpenStack Monasca},
+  year={2023},
+  doi={10.26599/BDMA.2023.9020014},
+}
+
+@inproceedings{Lanciano2021predictive,
+  title={{Predictive Auto-scaling with OpenStack Monasca}},
+  booktitle={{2021 IEEE/ACM 14th International Conference on Utility and Cloud Computing}},
+  author={Lanciano, Giacomo and Galli, Filippo and Cucinotta, Tommaso and Bacciu, Davide and Passarella, Andrea},
   year={2021},
   doi={10.1145/3468737.3494104},
 }
