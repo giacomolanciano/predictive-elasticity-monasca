@@ -41,6 +41,12 @@
             "relation": "isSupplementTo"
         },
         {
+            "scheme": "doi",
+            "identifier": "10.26599/BDMA.2023.9020014",
+            "relation": "isSupplementTo",
+            "resource_type": "publication-article"
+        },
+        {
             "scheme": "url",
             "identifier": "https://github.com/giacomolanciano/UCC2021-predictive-auto-scaling-openstack",
             "relation": "isDerivedFrom"
